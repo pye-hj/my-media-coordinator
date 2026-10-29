@@ -75,14 +75,5 @@ WebSearch と WebFetch を使う。区分ごとに手厚さを変える。
 1. 出典として使った記事をすべて `state/seen.jsonl` に追記する。
 2. `seen.jsonl` から日付が30日より古い行を削除する。
 3. 今の `profile.md` を `state/profile-snapshot.md` に上書きコピーする（次回の比較に使う）。
-4. コミットしてプッシュする。
-
-```bash
-git add digests state
-git commit -m "digest: YYYY-MM-DD"
-git push
-```
-
-プッシュが拒否された場合は、エラー内容をそのまま報告する。force push はしない。
 
 最後に、作成したファイルのパスと話題の数・出典の数を1〜2行で報告する。
