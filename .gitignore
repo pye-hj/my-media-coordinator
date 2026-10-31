@@ -1,4 +1,8 @@
 .DS_Store
+
+# --- 利用者データ ---
+# 雛形では無視する。複製リポジトリでは README の手順に従いこのブロックを削除する。
 profile.md
 digests/*
-state/*
+!digests/.gitkeep
+state/

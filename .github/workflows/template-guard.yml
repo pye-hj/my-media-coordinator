@@ -1,0 +1,22 @@
+# 雛形専用のチェック。利用者データ（profile.md / digests / state）が雛形にコミットされていないかを検査する。
+# 複製リポジトリでは main への直接 push で運用するため実行されず、PR を出しても job は skip される。
+name: template-guard
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  template-guard:
+    if: github.repository == 'pye-hj/my-media-coordinator'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: 利用者データが追跡されていないことを確認
+        run: |
+          tracked=$(git ls-files -- profile.md digests state ':!digests/.gitkeep')
+          if [ -n "$tracked" ]; then
+            echo "::error::利用者データが雛形にコミットされています。複製リポジトリで管理してください。"
+            echo "$tracked"
+            exit 1
+          fi
