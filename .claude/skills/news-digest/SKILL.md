@@ -10,6 +10,10 @@ description: profile.md に書かれた関心に沿ってニュースを収集�
 
 パスはすべてリポジトリのルートからの相対パス。日付は日本時間（`TZ=Asia/Tokyo date +%F`）で扱う。
 
+## 0. 実行できるリポジトリか確認する
+
+`profile.md` が無い場合は、雛形リポジトリか初期設定前の複製リポジトリである。「README の手順で複製リポジトリを作り、`profile.md` を用意してください」と報告して終了する。
+
 ## 1. 読み込み
 
 - `profile.md` を読む。見出しの意味は次のとおり。本文は自然文なので、意図を汲んで解釈する。
@@ -75,5 +79,15 @@ WebSearch と WebFetch を使う。区分ごとに手厚さを変える。
 1. 出典として使った記事をすべて `state/seen.jsonl` に追記する。
 2. `seen.jsonl` から日付が30日より古い行を削除する。
 3. 今の `profile.md` を `state/profile-snapshot.md` に上書きコピーする（次回の比較に使う）。
+4. コミットして `origin` にプッシュする。`template` remote にはプッシュしない。
+
+```bash
+git add digests state
+git commit -m "digest: YYYY-MM-DD"
+git push origin HEAD
+```
+
+`git add` が「ignored」で失敗した場合は、雛形リポジトリか初期設定（`.gitignore` の利用者データのブロックの削除）が済んでいない。`-f` は使わず、そのことを報告して終了する。
+プッシュが拒否された場合は、エラー内容をそのまま報告する。force push はしない。
 
 最後に、作成したファイルのパスと話題の数・出典の数を1〜2行で報告する。
