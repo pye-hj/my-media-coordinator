@@ -95,7 +95,7 @@ git push origin HEAD:main
 
 ## 7. issue で知らせる
 
-コミットとプッシュが済んだら、その日のダイジェストを issue にして、HTML を issue の artifact として添付する。GitHub 上（スマホを含む）で読めるようにし、通知を飛ばすため。
+コミットとプッシュが済んだら、その日のダイジェストを issue にして、HTML を issue の artifact として添付する。GitHub 上（スマホを含む）で読めるようにするため。通知は `digest-notify` ワークフローが送る（本人名義の issue は本人に通知されないため）。
 
 - GitHub の操作はすべて `gh api` で REST API を呼ぶ。`gh issue create` や `gh issue artifact` などの `gh issue` 系のコマンドは使わない（クラウド実行では GraphQL が使えず 403 になる）。
 - issue の本文は、一時ファイル（`mktemp` で作る）にリポジトリの外で書く。

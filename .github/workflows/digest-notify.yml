@@ -1,0 +1,26 @@
+# 複製リポジトリ用の通知。digest issue が立ったら、作成者をメンションして要点をコメントする。
+# スキルは利用者本人の名義で issue を立てるので、GitHub は本人に通知しない。bot がコメントすることで通知（メールや GitHub Mobile）が届く。
+# 雛形リポジトリでは job は skip される。
+name: digest-notify
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  digest-notify:
+    if: github.repository != 'pye-hj/my-media-coordinator' && contains(github.event.issue.labels.*.name, 'digest')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: 作成者をメンションして要点をコメント
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          AUTHOR: ${{ github.event.issue.user.login }}
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          f=$(mktemp)
+          printf '@%s 今日のダイジェストが届きました。\n\n%s\n' "$AUTHOR" "$BODY" > "$f"
+          gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/comments" -F body=@"$f" >/dev/null
