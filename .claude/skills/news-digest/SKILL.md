@@ -79,13 +79,16 @@ WebSearch と WebFetch を使う。区分ごとに手厚さを変える。
 1. 出典として使った記事をすべて `state/seen.jsonl` に追記する。
 2. `seen.jsonl` から日付が30日より古い行を削除する。
 3. 今の `profile.md` を `state/profile-snapshot.md` に上書きコピーする（次回の比較に使う）。
-4. コミットして `origin` にプッシュする。`template` remote にはプッシュしない。
+4. コミットして `origin` の `main` に直接プッシュする。今いるブランチが `main` 以外（クラウド実行で作られる `claude/` ブランチなど）でも、新しいブランチは作らず PR も出さない。`template` remote にはプッシュしない。
 
 ```bash
 git add digests state
 git commit -m "digest: YYYY-MM-DD"
-git push origin HEAD
+git pull --rebase origin main
+git push origin HEAD:main
 ```
+
+`git pull --rebase` で衝突した場合は、`git rebase --abort` で元に戻し、衝突したファイルを報告して終了する。
 
 `git add` が「ignored」で失敗した場合は、雛形リポジトリか初期設定（`.gitignore` の利用者データのブロックの削除）が済んでいない。`-f` は使わず、そのことを報告して終了する。
 プッシュが拒否された場合は、エラー内容をそのまま報告する。force push はしない。
