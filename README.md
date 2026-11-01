@@ -49,9 +49,11 @@ git push -u origin main
 ## 雛形の更新を取り込む
 
 ```bash
-git pull template main
+git pull --no-rebase template main
 git push
 ```
+
+複製側には利用者データのコミットがあるため、雛形とは履歴が分かれている。`--no-rebase`（マージで統合）を付けないと、git は「Need to specify how to reconcile divergent branches」で止まる。rebase は使わない（プッシュ済みのコミットを書き換えることになり、force push が必要になる）。毎回付けるのが手間なら、複製リポジトリで一度 `git config pull.rebase false` を実行しておく。
 
 複製側でスキルやテンプレートを編集していなければ衝突しない。
 
