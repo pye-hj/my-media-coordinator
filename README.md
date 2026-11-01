@@ -36,13 +36,16 @@ git commit -m "初期設定"
 git push -u origin main
 ```
 
-`.github/workflows/template-guard.yml` は雛形専用のチェックで、複製リポジトリでは実行されない。削除する必要はない（削除すると、雛形の更新を取り込むときに衝突することがある）。
+`.github/workflows/template-guard.yml` は雛形専用のチェックで、複製リポジトリでは実行されない。削除する必要はない（削除すると、雛形の更新を取り込むときに衝突することがある）。逆に `.github/workflows/digest-notify.yml` は複製リポジトリでだけ動く（「使う」を参照）。
 
 ## 使う
 
 - Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
 - あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
   - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
+- issue が立つと `digest-notify` ワークフローが作成者をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
+  - 受け取り方（メール / GitHub Mobile）は GitHub の Settings → Notifications の「Participating, @mentions and custom」で選ぶ。
+  - 複製リポジトリで Actions を無効にしていると届かない。
 - 毎日自動で実行するには、`/schedule` で複製リポジトリを対象にしたルーティンを作る。
 - `profile.md` を書き換えたらコミットしてプッシュする。翌日以降のダイジェストに反映される。
 
