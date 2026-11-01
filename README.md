@@ -11,7 +11,7 @@
 
 ## 収録スキル
 
-- `/news-digest` — `profile.md` の関心に沿ってニュースを集め、HTML の日次ダイジェストを `digests/` に書き出してコミットする。
+- `/news-digest` — `profile.md` の関心に沿ってニュースを集め、HTML の日次ダイジェストを `digests/` に書き出してコミットし、issue で知らせる。
 
 ## 複製リポジトリを作る
 
@@ -40,7 +40,9 @@ git push -u origin main
 
 ## 使う
 
-- Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` にプッシュされる。
+- Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
+- あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
+  - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
 - 毎日自動で実行するには、`/schedule` で複製リポジトリを対象にしたルーティンを作る。
 - `profile.md` を書き換えたらコミットしてプッシュする。翌日以降のダイジェストに反映される。
 
