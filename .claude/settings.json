@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash .claude/skills/news-digest/create-issue.sh *)"
+    ]
+  }
+}

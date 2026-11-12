@@ -97,16 +97,15 @@ git push origin HEAD:main
 
 コミットとプッシュが済んだら、その日のダイジェストを issue にして、HTML を issue の artifact として添付する。GitHub 上（スマホを含む）で読めるようにするため。通知は `digest-notify` ワークフローが送る（本人名義の issue は本人に通知されないため）。
 
-- GitHub の操作はすべて `gh api` で REST API を呼ぶ。`gh issue create` や `gh issue artifact` などの `gh issue` 系のコマンドは使わない（クラウド実行では GraphQL が使えず 403 になる）。
-- issue の本文は、一時ファイル（`mktemp` で作る）にリポジトリの外で書く。
+- GitHub の操作は `.claude/skills/news-digest/create-issue.sh` で行う。`gh api` を直接呼ばない（環境によっては承認待ちになり、無人実行が止まる。このスクリプトの実行は `.claude/settings.json` で許可されている）。`gh issue create` や `gh issue artifact` などの `gh issue` 系のコマンドも使わない（クラウド実行では GraphQL が使えず 403 になる。スクリプトは REST API を使う）。
+- issue の本文は、Write ツールで `.tmp/digest-issue-body.md` に書く（`.gitignore` で無視されている。スクリプトが使い終わったら削除する）。`mktemp` は使わない。
+- 本文を書いたら、次のコマンドを**そのまま単独で**実行する。`cd` や変数代入、`&&`、パイプなどと組み合わせると許可設定に一致せず、承認待ちになる。
 
 ```bash
-R=$(git remote get-url origin | sed -E 's#\.git$##; s#.*[/:]([^/]+/[^/]+)$#\1#')
-gh api "repos/$R/labels" -f name=digest -f color=b45309 >/dev/null 2>&1 || true   # 既にあれば 422 になるので無視する
-N=$(gh api "repos/$R/issues" -f title="digest: YYYY-MM-DD" -F body=@"$BODY_FILE" -f 'labels[]=digest' --jq .number)
-gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$R/issues/$N/artifacts" \
-  -f name="ダイジェスト YYYY-MM-DD" -F body=@digests/YYYY/MM/YYYY-MM-DD.html -f type=embedded_html
+bash .claude/skills/news-digest/create-issue.sh YYYY-MM-DD
 ```
+
+スクリプトはラベル `digest` を（無ければ）作り、issue「digest: YYYY-MM-DD」を立て、`digests/YYYY/MM/YYYY-MM-DD.html` を artifact として添付して、issue の URL を出力する。終了コードは 0（成功）、1（issue を作れなかった）、2（issue は作れたが artifact を作れなかった）。
 
 **issue の本文**（Markdown）
 - 1行目に対象期間（HTML の対象期間の行と同じ内容）
@@ -116,8 +115,8 @@ gh api -H "X-GitHub-Api-Version: 2026-03-10" "repos/$R/issues/$N/artifacts" \
 
 **失敗したとき**
 - ダイジェストは手順6でコミット済みなので、この手順で失敗しても実行全体は失敗にしない。
-- issue を作れなかった場合は、エラー内容を報告して終了する。
-- artifact を作れなかった場合は、issue はそのまま残し（要点とファイルへのリンクは読める）、エラー内容を報告する。
+- issue を作れなかった場合（終了コード 1）は、エラー内容を報告して終了する。
+- artifact を作れなかった場合（終了コード 2）は、issue はそのまま残し（要点とファイルへのリンクは読める）、issue の URL とエラー内容を報告する。
 - やり直しは繰り返さない。issue は close しない（読んだらユーザーが close する）。
 
 最後に、作成したファイルのパス、話題の数・出典の数、issue の URL を1〜2行で報告する。
