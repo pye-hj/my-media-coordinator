@@ -1,5 +1,6 @@
-# 複製リポジトリ用の通知。digest issue が立ったら、作成者をメンションして要点をコメントする。
+# 複製リポジトリ用の通知。digest issue が立ったら、宛先をメンションして要点をコメントする。
 # スキルは利用者本人の名義で issue を立てるので、GitHub は本人に通知しない。bot がコメントすることで通知（メールや GitHub Mobile）が届く。
+# 宛先はリポジトリの Actions variable `DIGEST_NOTIFY_TO`（ユーザー名や org/team を空白・カンマ・改行区切り）。未設定なら issue の作成者。
 # 雛形リポジトリでは job は skip される。
 name: digest-notify
 
@@ -14,13 +15,26 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: 作成者をメンションして要点をコメント
+      - name: 宛先をメンションして要点をコメント
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.issue.number }}
           AUTHOR: ${{ github.event.issue.user.login }}
           BODY: ${{ github.event.issue.body }}
+          RECIPIENTS: ${{ vars.DIGEST_NOTIFY_TO }}
         run: |
+          set -f  # 宛先に * などが含まれてもファイル名に展開しない
+          mentions=""
+          for r in $(printf '%s' "$RECIPIENTS" | tr ',' ' '); do
+            r="${r#@}"
+            if [[ "$r" =~ ^[A-Za-z0-9-]+(/[A-Za-z0-9._-]+)?$ ]]; then
+              mentions="$mentions @$r"
+            else
+              echo "::warning::DIGEST_NOTIFY_TO の不正な宛先を無視しました: $r"
+            fi
+          done
+          mentions="${mentions# }"
+          [ -n "$mentions" ] || mentions="@$AUTHOR"
           f=$(mktemp)
-          printf '@%s 今日のダイジェストが届きました。\n\n%s\n' "$AUTHOR" "$BODY" > "$f"
+          printf '%s 今日のダイジェストが届きました。\n\n%s\n' "$mentions" "$BODY" > "$f"
           gh api "repos/$GITHUB_REPOSITORY/issues/$NUMBER/comments" -F body=@"$f" >/dev/null

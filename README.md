@@ -43,9 +43,17 @@ git push -u origin main
 - Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
 - あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
   - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
-- issue が立つと `digest-notify` ワークフローが作成者をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
+- issue が立つと `digest-notify` ワークフローが宛先（既定は作成者）をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
   - 受け取り方（メール / GitHub Mobile）は GitHub の Settings → Notifications の「Participating, @mentions and custom」で選ぶ。
   - 複製リポジトリで Actions を無効にしていると届かない。
+  - 宛先を変えるには、複製リポジトリの Settings → Secrets and variables → Actions → Variables に `DIGEST_NOTIFY_TO` を作る。値はユーザー名や `org/team` を空白・カンマ・改行で区切って並べる（先頭の `@` は省略可）。設定すると作成者は自動では入らないので、自分も受け取るなら自分も書く。
+
+    ```bash
+    gh variable set DIGEST_NOTIFY_TO --body "alice bob my-org/news-team"
+    ```
+
+  - private リポジトリでは、リポジトリの read 権限を持つ人・チームにしか通知されない。チームの指定は組織のリポジトリでだけ有効。
+  - メンションの代わりに、各自がリポジトリを Watch（Custom → Issues）しても issue が立った通知は届く（作成者本人には届かない）。
 - 毎日自動で実行するには、`/schedule` で複製リポジトリを対象にしたルーティンを作る。
 - `profile.md` を書き換えたらコミットしてプッシュする。翌日以降のダイジェストに反映される。
 
