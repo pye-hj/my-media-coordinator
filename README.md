@@ -6,7 +6,7 @@
 
 | 種別 | パス | 雛形（このリポジトリ） | 複製リポジトリ |
 |---|---|---|---|
-| スキル・テンプレート | `.claude/skills/**`, `profile_template.md`, `README.md`, `.gitignore`, `.github/**`, `digests/.gitkeep` | 管理・編集する | 編集しない（雛形から取り込む） |
+| スキル・テンプレート | `.claude/skills/**`, `.claude/settings.json`, `profile_template.md`, `README.md`, `.gitignore`, `.github/**`, `digests/.gitkeep` | 管理・編集する | 編集しない（雛形から取り込む） |
 | 利用者データ | `profile.md`, `digests/YYYY/**`, `state/**` | 持たない | コミットする |
 
 ## 収録スキル
@@ -43,6 +43,7 @@ git push -u origin main
 - Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
 - あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
   - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
+  - issue の作成は `.claude/skills/news-digest/create-issue.sh` が行い、その実行は `.claude/settings.json` で許可済み（無人実行でも承認待ちで止まらないようにするため）。複製側で許可を足したいときは `settings.json` ではなく `.claude/settings.local.json`（追跡されない）に書く。`settings.json` を編集すると、雛形の更新を取り込むときに衝突することがある。
 - issue が立つと `digest-notify` ワークフローが宛先（既定は作成者）をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
   - 受け取り方（メール / GitHub Mobile）は GitHub の Settings → Notifications の「Participating, @mentions and custom」で選ぶ。
   - 複製リポジトリで Actions を無効にしていると届かない。
