@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# news-digest の手順7：その日のダイジェストを issue にし、HTML を artifact として添付する。
+# news-digest の手順8：その日のダイジェストを issue にし、HTML を artifact として添付する。
 # 使い方: bash .claude/skills/news-digest/create-issue.sh YYYY-MM-DD
 #   本文は .tmp/digest-issue-body.md（Markdown）から読む。終了時に削除する。
 # gh api を直接呼ぶと環境によって承認待ちで止まるため、この1本にまとめて .claude/settings.json で実行を許可している。

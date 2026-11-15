@@ -43,7 +43,7 @@ git push -u origin main
 - Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
 - あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
   - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
-  - issue の作成は `.claude/skills/news-digest/create-issue.sh` が行い、その実行は `.claude/settings.json` で許可済み（無人実行でも承認待ちで止まらないようにするため）。複製側で許可を足したいときは `settings.json` ではなく `.claude/settings.local.json`（追跡されない）に書く。`settings.json` を編集すると、雛形の更新を取り込むときに衝突することがある。
+  - issue の作成は `.claude/skills/news-digest/create-issue.sh` が行い、その実行は（表示機能のスクリプトとともに）`.claude/settings.json` で許可済み（無人実行でも承認待ちで止まらないようにするため）。複製側で許可を足したいときは `settings.json` ではなく `.claude/settings.local.json`（追跡されない）に書く。`settings.json` を編集すると、雛形の更新を取り込むときに衝突することがある。
 - issue が立つと `digest-notify` ワークフローが宛先（既定は作成者）をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
   - 受け取り方（メール / GitHub Mobile）は GitHub の Settings → Notifications の「Participating, @mentions and custom」で選ぶ。
   - 複製リポジトリで Actions を無効にしていると届かない。
@@ -59,6 +59,24 @@ git push -u origin main
 - `profile.md` を書き換えたらコミットしてプッシュする。翌日以降のダイジェストに反映される。
   - `## 曜日ごとの調整` に、曜日（月〜日）や「平日」「休日」（土日・祝日・東証の休場日）ごとの差分を自然文で書ける（例：`- 休日：NPB を「常に追う」扱い。経済は週間まとめを1本だけ。`）。書かなければ毎日同じ。調整はダイジェストの構成に黙って反映され、出力の形は変わらない。
   - 既存の `profile.md` にはこの節が無い。使うときは `profile_template.md` から写す（無くても従来どおり動く）。
+
+### 表示機能
+
+記事とは別の決まった形式の欄を、ダイジェストの冒頭に足せる。既定ではすべて off で、off のままならダイジェストは従来どおり。`profile.md` の `## 表示機能` で行の `off` を `on` に変えると有効になる。
+
+```markdown
+## 表示機能
+
+- 天気: on（地域: 札幌市）
+```
+
+| 機能名 | 内容 | 設定 |
+|---|---|---|
+| `天気` | 1地域のその日の予報を、時刻ごとの表（天気のアイコン・気温・降水確率）で表示する。issue の本文にも1行で載る | `地域`（必須）、`緯度経度`、`間隔`（時間、既定 3）。詳細は `.claude/skills/news-digest/features/weather.md` |
+
+- 雛形の更新で `profile_template.md` に `## 表示機能` が加わっても、既存の `profile.md` には入らない。使うときは `profile_template.md` からその節を写す。
+- 天気の予報は [Open-Meteo](https://open-meteo.com/) から取る（キー不要）。クラウド環境で実行する場合は、環境のネットワーク設定で `api.open-meteo.com` への接続を許可する。取得できなかった日は、その旨だけが表示される。
+- 機能を足すときは、`features/<名前>.md`（設定と手順）と断片を出力するスクリプトを置き、`SKILL.md` の「表示機能」の表に1行加え、断片の CSS を `digest-template.html` に足す。スクリプトの実行は `.claude/settings.json` で許可する。
 
 ## 雛形の更新を取り込む
 
