@@ -12,7 +12,7 @@
 ## 収録スキル
 
 - `/news-digest` — `profile.md` の関心に沿ってニュースを集め、HTML の日次ダイジェストを `digests/` に書き出してコミットし、issue で知らせる。
-- `/profile-settings` — `profile.md` の配信設定（表示機能の on/off と設定、雛形に新しく加わった節）を、選択肢に答えて確認・編集する。
+- `/profile-settings` — `profile.md` の配信設定（表示機能の on/off と設定、issue のタイトル、雛形に新しく加わった節）を、選択肢に答えて確認・編集する。
 
 ## 複製リポジトリを作る
 
@@ -44,7 +44,8 @@ git push -u origin main
 ## 使う
 
 - Claude Code で `/news-digest` を実行する。ダイジェストと既読記録（`state/`）はコミットされ、`origin` の `main` にプッシュされる。
-- あわせて `digest` ラベル付きの issue「digest: YYYY-MM-DD」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
+- あわせて `digest` ラベル付きの issue「今日のニュース：YYYY年MM月DD日」が立つ。本文に今日の要点があり、HTML 版は issue の Artifacts から Preview で読める。読んだら issue を close すれば、Issues 一覧が未読リストになる。
+  - タイトルは `profile.md` の `## issue` 節の `- タイトル:` 行で変えられる（`/profile-settings` でも設定できる）。日付は置き換え文字 `{yyyy}`（年）`{mm}`（月2桁）`{dd}`（日2桁）`{m}`（月）`{d}`（日）で入れる（例：`- タイトル: 朝刊 {m}/{d}`）。行や節が無ければ既定の書式になる。
   - issue の artifact は GitHub の public preview の機能。使えない場合でも、git 上のファイルと issue の本文は残る。
   - issue の作成は `.claude/skills/news-digest/create-issue.sh` が行い、その実行は（表示機能のスクリプトとともに）`.claude/settings.json` で許可済み（無人実行でも承認待ちで止まらないようにするため）。複製側で許可を足したいときは `settings.json` ではなく `.claude/settings.local.json`（追跡されない）に書く。`settings.json` を編集すると、雛形の更新を取り込むときに衝突することがある。
 - issue が立つと `digest-notify` ワークフローが宛先（既定は作成者）をメンションし、要点をコメントする。issue は本人の名義で立つので GitHub は本人に通知しないが、このコメントの通知は届く。
