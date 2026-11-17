@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(python3 .claude/skills/news-digest/features/weather.py *)",
+      "Bash(python3 .claude/skills/news-digest/features/moon.py *)",
       "Bash(bash .claude/skills/news-digest/create-issue.sh *)"
     ]
   }
