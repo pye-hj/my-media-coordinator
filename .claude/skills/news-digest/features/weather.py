@@ -1,111 +1,246 @@
 #!/usr/bin/env python3
 """news-digest の表示機能「天気」：1地域のその日の予報を、時刻ごとの表にした HTML 断片を出力する。
 
-使い方: python3 .claude/skills/news-digest/features/weather.py YYYY-MM-DD 緯度 経度 地域名 [--step 時間]
-  予報は Open-Meteo（キー不要）から取る。時刻はその地域の現地時刻。
-  --step は表の間隔（時間）。既定は 3（0, 3, ..., 21 時）。24 の約数のみ。
-終了コード: 0 成功 / 2 引数の誤り / 3 予報を取得できなかった（取得できなかった旨の断片を出力する）
+使い方: python3 .claude/skills/news-digest/features/weather.py YYYY-MM-DD 地域名 [--step 時間]
+  予報は気象庁の防災情報 JSON（キー不要）から取る。日本国内のみ。時刻は日本時間。
+  地域名は市区町村名（「東京都千代田区」「札幌市」など）、気象庁の一次細分区域名（「東京地方」など）、
+  都道府県名、または気象庁の地域コードで指定する。同名の市町村がある場合は都道府県名を前に付ける。
+  --step は表の間隔（時間）。3 または 6。既定は 3（0, 3, ..., 21 時）。
+終了コード: 0 成功 / 2 引数の誤り（地域を特定できない場合を含む） /
+          3 予報を取得できなかった（取得できなかった旨の断片を出力する）
 """
 import argparse
 import datetime
 import html
 import json
+import re
 import sys
-import urllib.parse
 import urllib.request
 
-API = "https://api.open-meteo.com/v1/forecast"
+BASE = "https://www.jma.go.jp/bosai"
+AREA_URL = f"{BASE}/common/const/area.json"
+FORECAST_URL = f"{BASE}/forecast/data/forecast/{{office}}.json"
+HOURLY_URL = f"{BASE}/jmatile/data/wdist/VPFD/{{class10}}.json"
+PAGE_URL = "https://www.jma.go.jp/bosai/forecast/#area_type=class10s&area_code={class10}"
 
-# WMO weather code → (昼のアイコン, 夜のアイコン, 説明)
-CODES = {
-    0: ("☀️", "🌙", "快晴"),
-    1: ("🌤️", "🌙", "晴れ"),
-    2: ("⛅", "☁️", "晴れ時々曇り"),
-    3: ("☁️", "☁️", "曇り"),
-    45: ("🌫️", "🌫️", "霧"),
-    48: ("🌫️", "🌫️", "着氷性の霧"),
-    51: ("🌦️", "🌧️", "弱い霧雨"),
-    53: ("🌦️", "🌧️", "霧雨"),
-    55: ("🌧️", "🌧️", "強い霧雨"),
-    56: ("🌧️", "🌧️", "着氷性の霧雨"),
-    57: ("🌧️", "🌧️", "強い着氷性の霧雨"),
-    61: ("🌧️", "🌧️", "弱い雨"),
-    63: ("🌧️", "🌧️", "雨"),
-    65: ("☔", "☔", "強い雨"),
-    66: ("🌧️", "🌧️", "着氷性の雨"),
-    67: ("☔", "☔", "強い着氷性の雨"),
-    71: ("🌨️", "🌨️", "弱い雪"),
-    73: ("🌨️", "🌨️", "雪"),
-    75: ("❄️", "❄️", "強い雪"),
-    77: ("🌨️", "🌨️", "霧雪"),
-    80: ("🌦️", "🌧️", "にわか雨"),
-    81: ("🌧️", "🌧️", "強いにわか雨"),
-    82: ("☔", "☔", "激しいにわか雨"),
-    85: ("🌨️", "🌨️", "にわか雪"),
-    86: ("❄️", "❄️", "強いにわか雪"),
-    95: ("⛈️", "⛈️", "雷雨"),
-    96: ("⛈️", "⛈️", "ひょうを伴う雷雨"),
-    99: ("⛈️", "⛈️", "強いひょうを伴う雷雨"),
-}
-
-ATTRIBUTION = '<a href="https://open-meteo.com/">Open-Meteo</a>'
+JST = datetime.timezone(datetime.timedelta(hours=9))
+ATTRIBUTION = '<a href="https://www.jma.go.jp/bosai/forecast/">気象庁</a>'
 
 
-def icon(code, is_day=True):
-    day, night, desc = CODES.get(code, ("❔", "❔", "不明"))
-    return (day if is_day else night), desc
+class AreaError(Exception):
+    pass
 
 
-def fmt_temp(t):
-    return "–" if t is None else f"{round(t)}℃"
-
-
-def fmt_pct(p):
-    return "–" if p is None else f"{p}%"
-
-
-def fetch(date, lat, lon):
-    params = {
-        "latitude": lat,
-        "longitude": lon,
-        "hourly": "weather_code,temperature_2m,precipitation_probability,is_day",
-        "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-        "timezone": "auto",
-        "start_date": date,
-        "end_date": date,
-    }
-    url = API + "?" + urllib.parse.urlencode(params)
+def get_json(url):
     req = urllib.request.Request(url, headers={"User-Agent": "news-digest-weather"})
     with urllib.request.urlopen(req, timeout=20) as r:
         return json.load(r)
 
 
-def render(data, name, step):
-    h = data["hourly"]
-    d = data["daily"]
-    offset = datetime.timedelta(seconds=data.get("utc_offset_seconds", 0))
-    now = datetime.datetime.now(datetime.timezone(offset))
+# ---- 地域の特定 -------------------------------------------------------------
 
-    day_icon, day_desc = icon(d["weather_code"][0])
+def _norm(s):
+    return re.sub(r"\s+", "", s)
+
+
+def _pref_ok(prefix, office_code, areas):
+    """地域名の前に付いた都道府県などの文字列が、その区域の府県予報区と矛盾しないか。"""
+    prefix = re.sub(r"[都道府県]$", "", prefix)
+    if not prefix:
+        return True
+    office = areas["offices"][office_code]
+    center = areas["centers"].get(office.get("parent", ""), {})
+    return any(prefix in n for n in (office["name"], office.get("officeName", ""), center.get("name", "")))
+
+
+def class10_of_class20(code, areas):
+    c15 = areas["class20s"][code]["parent"]
+    return areas["class15s"][c15]["parent"]
+
+
+def resolve(query, areas):
+    """地域名（またはコード）から一次細分区域（class10）のコードを返す。"""
+    q = _norm(query)
+    if q in areas["class20s"]:
+        return class10_of_class20(q, areas)
+    if q in areas["class10s"]:
+        return q
+    if q in areas["offices"]:
+        return areas["offices"][q]["children"][0]
+
+    # 市区町村（class20）。「横浜市北部」のような分割区域は「横浜市」として扱う。
+    found = {}
+    for code, a in areas["class20s"].items():
+        name = a["name"]
+        base = re.sub(r"(北部|南部|東部|西部|中部)$", "", name)
+        for n in {name, base}:
+            i = q.find(n)
+            if i < 0 or len(n) < 2:
+                continue
+            c10 = class10_of_class20(code, areas)
+            office = areas["class10s"][c10]["parent"]
+            if _pref_ok(q[:i], office, areas):
+                found.setdefault(len(n), {})[c10] = name
+    if found:
+        best = found[max(found)]
+        if len(best) == 1:
+            return next(iter(best))
+        offices = {areas["class10s"][c]["parent"] for c in best}
+        if len(offices) == 1:  # 「仙台市東部・西部」のように同じ府県内で分かれる場合は代表の区域
+            order = areas["offices"][offices.pop()]["children"]
+            return min(best, key=lambda c: order.index(c) if c in order else len(order))
+        cands = "、".join(
+            f"{n}（{areas['offices'][areas['class10s'][c]['parent']]['name']}）" for c, n in best.items()
+        )
+        raise AreaError(f"「{query}」に当たる地域が複数ある: {cands}。都道府県名を前に付けて指定する")
+
+    # 一次細分区域・府県予報区（都道府県）
+    for key, pick in (("class10s", lambda c, a: c), ("offices", lambda c, a: a["children"][0])):
+        for code, a in areas[key].items():
+            name = a["name"]
+            if q == name or q == re.sub(r"[都道府県]$", "", name) or re.sub(r"[都道府県]$", "", q) == name:
+                return pick(code, a)
+    raise AreaError(f"「{query}」に当たる地域が見つからない（気象庁の予報は日本国内のみ）")
+
+
+# ---- アイコン ---------------------------------------------------------------
+
+def icon_for(text, is_day=True):
+    """気象庁の天気の文言から (アイコン, 説明) を返す。"""
+    t = text.replace("　", " ").strip()
+    head = t.split(" ")[0]
+    if "雷" in head:
+        ic = "⛈️"
+    elif "雪" in head and "雨" in head:
+        ic = "🌨️"
+    elif "雪" in head:
+        ic = "❄️" if "大雪" in t or "暴風雪" in t else "🌨️"
+    elif "雨" in head:
+        ic = "☔" if "激しく" in t or "強く" in t or "大雨" in t or "暴風雨" in t else "🌧️"
+    elif "晴" in head:
+        if "雨" in t or "雪" in t:
+            ic = "🌦️" if is_day else "🌧️"
+        elif "くもり" in t or "曇" in t:
+            ic = "🌤️" if is_day else "☁️"
+        else:
+            ic = "☀️" if is_day else "🌙"
+    elif "くもり" in head or "曇" in head:
+        if "雨" in t or "雪" in t:
+            ic = "🌧️" if "雨" in t else "🌨️"
+        elif "晴" in t:
+            ic = "⛅" if is_day else "☁️"
+        else:
+            ic = "☁️"
+    elif "霧" in head:
+        ic = "🌫️"
+    else:
+        ic = "❔"
+    return ic, t
+
+
+# ---- 表示 -------------------------------------------------------------------
+
+def fmt_temp(t):
+    return "–" if t in (None, "") else f"{round(float(t))}℃"
+
+
+def fmt_pct(p):
+    return "–" if p in (None, "") else f"{p}%"
+
+
+def parse_time(s):
+    return datetime.datetime.fromisoformat(s).astimezone(JST)
+
+
+def build(date, class10, areas, step):
+    office = areas["class10s"][class10]["parent"]
+    hourly = get_json(HOURLY_URL.format(class10=class10))
+    forecast = get_json(FORECAST_URL.format(office=office))[0]
+    day = datetime.date.fromisoformat(date)
+
+    # 日ごとの天気（府県天気予報）と 6 時間ごとの降水確率
+    ts_weather, ts_pop = forecast["timeSeries"][0], forecast["timeSeries"][1]
+    w_area = next(a for a in ts_weather["areas"] if a["area"]["code"] == class10)
+    p_area = next(a for a in ts_pop["areas"] if a["area"]["code"] == class10)
+    day_text = None
+    for t, w in zip(ts_weather["timeDefines"], w_area["weathers"]):
+        if parse_time(t).date() == day:
+            day_text = w
+    pops = []  # (開始時刻, 値)
+    for t, p in zip(ts_pop["timeDefines"], p_area["pops"]):
+        pops.append((parse_time(t), p))
+
+    def pop_at(dt):
+        for start, p in pops:
+            if start <= dt < start + datetime.timedelta(hours=6):
+                return p
+        return None
+
+    # 3 時間ごとの天気と気温（地域時系列予報）
+    at = hourly["areaTimeSeries"]
+    pt = hourly["pointTimeSeries"]
+    weather_at = {parse_time(t["dateTime"]): w for t, w in zip(at["timeDefines"], at["weather"])}
+    temp_at = {parse_time(t["dateTime"]): v for t, v in zip(pt["timeDefines"], pt["temperature"])}
+    tmax = tmin = None
+    for t, mx, mn in zip(pt["timeDefines"], pt["maxTemperature"], pt["minTemperature"]):
+        if parse_time(t["dateTime"]).date() == day:
+            tmax = mx if mx != "" else tmax
+            tmin = mn if mn != "" else tmin
+
+    if tmax is None or tmin is None:  # 時系列に無いときは府県天気予報の地点の気温で補う
+        ts_temp = forecast["timeSeries"][2]
+        st = next((a for a in ts_temp["areas"] if a["area"]["name"] == pt.get("pointNameJP")), None)
+        if st:
+            for t, v in zip(ts_temp["timeDefines"], st["temps"]):
+                dt = parse_time(t)
+                if dt.date() == day:
+                    if dt.hour == 0 and tmin is None:
+                        tmin = v
+                    elif dt.hour == 9 and tmax is None:
+                        tmax = v
+
+    day_pops = [int(p) for start, p in pops if start.date() == day and p != ""]
+    if day_text is None and not any(dt.date() == day for dt in weather_at):
+        raise ValueError(f"{date} の予報が発表されていない")
+
+    if day_text is not None:
+        day_icon, day_desc = icon_for(day_text)
+    else:  # 日ごとの予報が無い場合は時系列の最頻値で代える
+        texts = [w for dt, w in weather_at.items() if dt.date() == day]
+        day_icon, day_desc = icon_for(max(set(texts), key=texts.count))
     summary = (
-        f"{day_icon} {day_desc}　最高 {fmt_temp(d['temperature_2m_max'][0])}"
-        f" / 最低 {fmt_temp(d['temperature_2m_min'][0])}"
-        f" / 降水確率 最大 {fmt_pct(d['precipitation_probability_max'][0])}"
+        f"{day_icon} {html.escape(day_desc)}　最高 {fmt_temp(tmax)}"
+        f" / 最低 {fmt_temp(tmin)}"
+        f" / 降水確率 最大 {fmt_pct(max(day_pops) if day_pops else None)}"
     )
 
-    hours, icons, temps, pops = [], [], [], []
-    for i, t in enumerate(h["time"]):
-        hour = int(t[11:13])
-        if hour % step:
-            continue
-        ic, desc = icon(h["weather_code"][i], bool(h["is_day"][i]))
-        pop = h["precipitation_probability"][i]
-        hours.append(f"<th scope=\"col\">{hour}</th>")
-        icons.append(f'<td class="icon" title="{desc}"><span role="img" aria-label="{desc}">{ic}</span></td>')
-        temps.append(f"<td>{fmt_temp(h['temperature_2m'][i])}</td>")
-        cls = ' class="wet"' if pop is not None and pop >= 50 else ""
-        pops.append(f"<td{cls}>{fmt_pct(pop)}</td>")
+    hours, icons, temps, pop_cells = [], [], [], []
+    for hour in range(0, 24, step):
+        dt = datetime.datetime(day.year, day.month, day.day, hour, tzinfo=JST)
+        w = weather_at.get(dt)
+        if w is None:
+            ic, desc = "–", "予報なし"
+        else:
+            ic, desc = icon_for(w, 6 <= hour < 18)
+        pop = pop_at(dt)
+        hours.append(f'<th scope="col">{hour}</th>')
+        icons.append(f'<td class="icon" title="{html.escape(desc)}"><span role="img" aria-label="{html.escape(desc)}">{ic}</span></td>')
+        temps.append(f"<td>{fmt_temp(temp_at.get(dt))}</td>")
+        cls = ' class="wet"' if pop not in (None, "") and int(pop) >= 50 else ""
+        pop_cells.append(f"<td{cls}>{fmt_pct(pop)}</td>")
 
+    report = parse_time(hourly["reportDateTime"])
+    area_name = areas["class10s"][class10]["name"]
+    office_name = areas["offices"][office]["name"]
+    if office_name != area_name:
+        area_name = f"{office_name} {area_name}"
+    point = pt.get("pointNameJP", "")
+    link = PAGE_URL.format(class10=class10)
+    return summary, hours, icons, temps, pop_cells, report, area_name, point, link
+
+
+def render(name, summary, hours, icons, temps, pops, report, area_name, point, link):
+    where = html.escape(area_name) + (f"（気温は{html.escape(point)}）" if point else "")
     return f"""<section class="feature weather">
     <h2>天気 — {html.escape(name)}</h2>
     <p class="summary">{summary}</p>
@@ -117,7 +252,7 @@ def render(data, name, step):
         <tr><th scope="row">降水</th>{''.join(pops)}</tr>
       </table>
     </div>
-    <p class="note">{now:%H:%M}（現地時刻）時点の予報。データ: {ATTRIBUTION}</p>
+    <p class="note"><a href="{link}">{where}</a>の予報。{report.month}月{report.day}日{report.hour}時 発表。データ: {ATTRIBUTION}</p>
   </section>"""
 
 
@@ -131,8 +266,6 @@ def render_error(name):
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("date")
-    p.add_argument("lat", type=float)
-    p.add_argument("lon", type=float)
     p.add_argument("name")
     p.add_argument("--step", type=int, default=3)
     a = p.parse_args()
@@ -140,14 +273,22 @@ def main():
         datetime.date.fromisoformat(a.date)
     except ValueError:
         p.error("date は YYYY-MM-DD で指定する")
-    if not (-90 <= a.lat <= 90 and -180 <= a.lon <= 180):
-        p.error("緯度・経度の範囲が不正")
-    if a.step < 1 or 24 % a.step:
-        p.error("--step は 24 の約数（1, 2, 3, 4, 6, 8, 12, 24）")
+    if a.step not in (3, 6):
+        p.error("--step は 3 または 6")
 
     try:
-        data = fetch(a.date, a.lat, a.lon)
-        out = render(data, a.name, a.step)
+        areas = get_json(AREA_URL)
+    except Exception as e:
+        print(render_error(a.name))
+        print(f"error: 予報を取得できませんでした: {e}", file=sys.stderr)
+        return 3
+    try:
+        class10 = resolve(a.name, areas)
+    except AreaError as e:
+        p.error(str(e))
+
+    try:
+        out = render(a.name, *build(a.date, class10, areas, a.step))
     except Exception as e:  # ネットワーク・API・応答形式の失敗はまとめて扱う
         print(render_error(a.name))
         print(f"error: 予報を取得できませんでした: {e}", file=sys.stderr)
