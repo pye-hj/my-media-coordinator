@@ -103,6 +103,8 @@ KOU = [
     ("鶏始乳", "にわとりはじめてとやにつく", "鶏が卵を産み始める"),
 ]
 KOU_ORDER = ["初候", "次候", "末候"]
+# 立春・立夏・立秋・立冬から6つずつ（class 名、表示）
+SEASONS = [("spring", "春"), ("summer", "夏"), ("autumn", "秋"), ("winter", "冬")]
 
 
 def solar_longitude(t):
@@ -151,6 +153,7 @@ def info(date):
     sekki_next = start_date((s + 1) * 15 % 360, end_of_day + datetime.timedelta(days=5 * (2 - sub) + 3))
     si = (s + 3) % 24  # 立春起点の番号
     return {
+        "index": si,
         "sekki": SEKKI[si], "next_sekki": SEKKI[(si + 1) % 24],
         "kou": KOU[si * 3 + sub], "next_kou": KOU[(si * 3 + sub + 1) % 72], "kou_order": KOU_ORDER[sub],
         "sekki_start": sekki_start, "sekki_next": sekki_next,
@@ -172,13 +175,28 @@ def render(date):
         detail = f"次の節気「{i['next_sekki'][0]}」まで あと{to_sekki}日"
     else:
         detail = f"次の候「{i['next_kou'][0]}」まで あと{to_kou}日 / 次の節気「{i['next_sekki'][0]}」まで あと{to_sekki}日"
-    return f"""<section class="feature sekki">
+    season = SEASONS[i["index"] // 6]
+    return f"""<section class="feature sekki {season[0]}">
     <h2>二十四節気</h2>
-    <p class="summary">{sekki_mark}{name}<span class="yomi">{yomi}</span><span class="span">{md(i['sekki_start'])}〜{md(last)}</span></p>
+    <p class="summary">{sekki_mark}<span class="name">{name}</span><span class="yomi">{yomi}</span><span class="span">{md(i['sekki_start'])}〜{md(last)}</span></p>
     <p class="kou">{kou_mark}{i['kou_order']}　{kname}<span class="yomi">{kyomi}</span><span class="mean">{kmean}</span></p>
     <p class="essay">{{{{essay}}}}</p>
+    {wheel(i['index'])}
     <p class="detail">{detail}</p>
   </section>"""
+
+
+def wheel(index):
+    """立春から大寒までの24の節気を季節ごとに並べた帯。今の節気を強調し、過ぎた節気を淡く塗る。"""
+    groups = []
+    for g, (cls, label) in enumerate(SEASONS):
+        ticks = "".join(
+            f'<i class="{"now" if n == index else "past" if n < index else ""}"></i>'.replace(' class=""', "")
+            for n in range(g * 6, g * 6 + 6)
+        )
+        groups.append(f'<span class="{cls}">{ticks}<b>{label}</b></span>')
+    name = SEKKI[index][0]
+    return f'<div class="wheel" role="img" aria-label="立春から数えて{index + 1}番目の節気、{name}">{"".join(groups)}</div>'
 
 
 def main():

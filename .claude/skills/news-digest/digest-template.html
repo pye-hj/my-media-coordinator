@@ -52,15 +52,43 @@
   .moon .summary { margin: 0 0 4px; font-size: 1.1rem; }
   .moon .detail { margin: 0; font-size: .85rem; color: var(--muted); }
 
-  .feature.sekki { margin-top: 40px; }
-  .sekki .summary { margin: 0; font-size: 1.25rem; font-weight: 700; }
-  .sekki .kou { margin: 2px 0 12px; }
-  .sekki .yomi { color: var(--muted); font-size: .75rem; font-weight: 400; margin-left: .4em; }
-  .sekki .span { color: var(--muted); font-size: .8rem; font-weight: 400; margin-left: .8em; }
+  /* 二十四節気：季節ごとの色（--season は文字・帯、--season-bg は欄の地、--season-soft は過ぎた節気） */
+  .sekki.spring, .sekki .spring { --season: #b8456b; --season-bg: #fbf0f3; --season-soft: #ecc3d1; }
+  .sekki.summer, .sekki .summer { --season: #2c7a63; --season-bg: #edf6f1; --season-soft: #b9dccd; }
+  .sekki.autumn, .sekki .autumn { --season: #ad4f22; --season-bg: #fbf1e8; --season-soft: #ecc8ae; }
+  .sekki.winter, .sekki .winter { --season: #3f6489; --season-bg: #eef3f8; --season-soft: #c3d3e4; }
+  @media (prefers-color-scheme: dark) {
+    .sekki.spring, .sekki .spring { --season: #f0a3bd; --season-bg: #2a1e23; --season-soft: #5e3a48; }
+    .sekki.summer, .sekki .summer { --season: #7fcfb4; --season-bg: #17251f; --season-soft: #2f5547; }
+    .sekki.autumn, .sekki .autumn { --season: #f0a173; --season-bg: #2a1f18; --season-soft: #5e3e2b; }
+    .sekki.winter, .sekki .winter { --season: #9dbfe4; --season-bg: #1a2029; --season-soft: #34465c; }
+  }
+  .feature.sekki { position: relative; overflow: hidden; margin-top: 40px; padding: 20px 22px 16px;
+                   background: var(--season-bg); border-top: 3px solid var(--season); }
+  .sekki::after { position: absolute; top: -.12em; right: .05em; font-size: 7.5rem; line-height: 1; color: var(--season);
+                  opacity: .08; pointer-events: none; font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; }
+  .sekki.spring::after { content: "春"; }
+  .sekki.summer::after { content: "夏"; }
+  .sekki.autumn::after { content: "秋"; }
+  .sekki.winter::after { content: "冬"; }
+  .sekki h2 { color: var(--season); }
+  .sekki .summary, .sekki .kou, .sekki .essay { font-family: "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif; }
+  .sekki .summary { margin: 0; }
+  .sekki .name { font-size: 1.9rem; font-weight: 600; letter-spacing: .12em; color: var(--season); }
+  .sekki .kou { margin: 4px 0 14px; font-size: 1.02rem; }
+  .sekki .yomi { color: var(--muted); font-size: .75rem; margin-left: .5em; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  .sekki .span { color: var(--muted); font-size: .8rem; margin-left: .8em; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
   .sekki .mean { display: block; color: var(--muted); font-size: .85rem; }
-  .sekki .today { color: var(--accent); border: 1px solid currentColor; border-radius: 4px; font-size: .7rem; font-weight: 700; padding: 0 .4em; margin-right: .5em; vertical-align: .15em; }
-  .sekki .essay { margin: 0 0 12px; }
-  .sekki .detail { margin: 0; font-size: .85rem; color: var(--muted); }
+  .sekki .today { display: inline-block; color: var(--season); border: 1px solid currentColor; border-radius: 4px; font-size: .7rem; font-weight: 700;
+                  padding: 0 .4em; margin-right: .6em; vertical-align: .6em; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  .sekki .essay { margin: 0 0 16px; padding-left: 14px; border-left: 2px solid var(--season-soft); line-height: 2; }
+  .sekki .wheel { display: flex; gap: 6px; margin: 0 0 8px; }
+  .sekki .wheel > span { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; }
+  .sekki .wheel i { height: 6px; border-radius: 2px; background: var(--rule); }
+  .sekki .wheel i.past { background: var(--season-soft); }
+  .sekki .wheel i.now { background: var(--season); transform: scaleY(1.7); }
+  .sekki .wheel b { grid-column: 1 / -1; font-weight: 400; font-size: .7rem; color: var(--muted); text-align: center; line-height: 1.6; }
+  .sekki .detail { margin: 0; font-size: .8rem; color: var(--muted); }
 </style>
 </head>
 <body>
