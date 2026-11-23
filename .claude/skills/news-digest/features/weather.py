@@ -5,7 +5,8 @@
   予報は気象庁の防災情報 JSON（キー不要）から取る。日本国内のみ。時刻は日本時間。
   地域名は市区町村名（「東京都千代田区」「札幌市」など）、気象庁の一次細分区域名（「東京地方」など）、
   都道府県名、または気象庁の地域コードで指定する。同名の市町村がある場合は都道府県名を前に付ける。
-  --step は表の間隔（時間）。3 または 6。既定は 3（0, 3, ..., 21 時）。
+  --step は表の間隔（時間）。3 または 6。既定は 3。
+  表は指定日以降で発表済みの最初の時刻から 24 時間分（日付をまたぐ列には日付を添える）。
 終了コード: 0 成功 / 2 引数の誤り（地域を特定できない場合を含む） /
           3 予報を取得できなかった（取得できなかった旨の断片を出力する）
 """
@@ -187,17 +188,8 @@ def build(date, class10, areas, step):
             tmax = mx if mx != "" else tmax
             tmin = mn if mn != "" else tmin
 
-    if tmax is None or tmin is None:  # 時系列に無いときは府県天気予報の地点の気温で補う
-        ts_temp = forecast["timeSeries"][2]
-        st = next((a for a in ts_temp["areas"] if a["area"]["name"] == pt.get("pointNameJP")), None)
-        if st:
-            for t, v in zip(ts_temp["timeDefines"], st["temps"]):
-                dt = parse_time(t)
-                if dt.date() == day:
-                    if dt.hour == 0 and tmin is None:
-                        tmin = v
-                    elif dt.hour == 9 and tmax is None:
-                        tmax = v
+    # 発表時刻より前の最低・最高（例：5時発表の当日の最低）は気象庁も出さないので「–」のままにする。
+    # 府県天気予報の気温欄にはこの場合も仮の値（最高と同じ値）が入るため、補完に使わない。
 
     day_pops = [int(p) for start, p in pops if start.date() == day and p != ""]
     if day_text is None and not any(dt.date() == day for dt in weather_at):
@@ -214,16 +206,26 @@ def build(date, class10, areas, step):
         f" / 降水確率 最大 {fmt_pct(max(day_pops) if day_pops else None)}"
     )
 
+    # 表は発表済みの最初の時刻から 24 時間分（発表前の時間帯は予報が無いため、日付の 0 時固定にしない）
+    day_start = datetime.datetime(day.year, day.month, day.day, tzinfo=JST)
+    slots = sorted(dt for dt in weather_at if dt >= day_start and dt.hour % step == 0)
+    if not slots:
+        raise ValueError(f"{date} 以降の時系列予報が無い")
+    start = slots[0]
+
     hours, icons, temps, pop_cells = [], [], [], []
-    for hour in range(0, 24, step):
-        dt = datetime.datetime(day.year, day.month, day.day, hour, tzinfo=JST)
+    prev_date = day
+    for k in range(24 // step):
+        dt = start + datetime.timedelta(hours=k * step)
         w = weather_at.get(dt)
         if w is None:
             ic, desc = "–", "予報なし"
         else:
-            ic, desc = icon_for(w, 6 <= hour < 18)
+            ic, desc = icon_for(w, 6 <= dt.hour < 18)
         pop = pop_at(dt)
-        hours.append(f'<th scope="col">{hour}</th>')
+        label = f"{dt.day}日 {dt.hour}" if dt.date() != prev_date else f"{dt.hour}"
+        prev_date = dt.date()
+        hours.append(f'<th scope="col">{label}</th>')
         icons.append(f'<td class="icon" title="{html.escape(desc)}"><span role="img" aria-label="{html.escape(desc)}">{ic}</span></td>')
         temps.append(f"<td>{fmt_temp(temp_at.get(dt))}</td>")
         cls = ' class="wet"' if pop not in (None, "") and int(pop) >= 50 else ""
