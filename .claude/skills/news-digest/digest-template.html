@@ -51,6 +51,16 @@
 
   .moon .summary { margin: 0 0 4px; font-size: 1.1rem; }
   .moon .detail { margin: 0; font-size: .85rem; color: var(--muted); }
+
+  .feature.sekki { margin-top: 40px; }
+  .sekki .summary { margin: 0; font-size: 1.25rem; font-weight: 700; }
+  .sekki .kou { margin: 2px 0 12px; }
+  .sekki .yomi { color: var(--muted); font-size: .75rem; font-weight: 400; margin-left: .4em; }
+  .sekki .span { color: var(--muted); font-size: .8rem; font-weight: 400; margin-left: .8em; }
+  .sekki .mean { display: block; color: var(--muted); font-size: .85rem; }
+  .sekki .today { color: var(--accent); border: 1px solid currentColor; border-radius: 4px; font-size: .7rem; font-weight: 700; padding: 0 .4em; margin-right: .5em; vertical-align: .15em; }
+  .sekki .essay { margin: 0 0 12px; }
+  .sekki .detail { margin: 0; font-size: .85rem; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -60,7 +70,7 @@
     <p class="period">対象期間: YYYY-MM-DD 〜 YYYY-MM-DD</p>
   </header>
 
-  <!-- 表示機能：profile.md の「## 表示機能」で on のものだけ、各機能が出力した section をここに並べる。無ければ何も置かない -->
+  <!-- 置き場所が冒頭の表示機能：profile.md の「## 表示機能」で on のものだけ、各機能が出力した section をここに並べる。無ければ何も置かない -->
 
   <!-- 今日の要点：各話題を1行で。リンクは各 article へのページ内リンク -->
   <section class="lede">
@@ -104,6 +114,8 @@
       <li id="s5"><a href="https://example.com/5">記事タイトル</a><span class="pub">媒体名・YYYY-MM-DD</span></li>
     </ol>
   </article>
+
+  <!-- 置き場所が末尾の表示機能（二十四節気など）：on のものだけ、各機能が出力した section をここに並べる。無ければ何も置かない -->
 </main>
 </body>
 </html>
